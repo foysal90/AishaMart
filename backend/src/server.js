@@ -1,6 +1,8 @@
 const app = require("./app");
-const port = require('./secret');
+const connectDB = require("./config/db");
+const { port } = require("./secret");
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(port, "is running fine");
+  await connectDB();
 });

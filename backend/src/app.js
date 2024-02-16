@@ -5,6 +5,7 @@ const createError = require("http-errors");
 const xssClean = require("xss-clean");
 const rateLimit = require("express-rate-limit");
 const { userRouter } = require("./routers/userRouter");
+const seedRouter = require("./routers/seedRouter");
 const app = express();
 
 const rateLimiter = rateLimit({
@@ -20,6 +21,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/users",userRouter);
+app.use("/api/seed",seedRouter);
 //client side error handling
 app.use((req, res, next) => {
   //   createError(404, "page not found");
