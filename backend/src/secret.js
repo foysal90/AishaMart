@@ -10,6 +10,7 @@ const jwtActivationKey =
 
 const smtpUsername = process.env.SMTP_USERNAME;
 const smtpPassword = process.env.SMTP_PASSWORD;
+const frontendURL = process.env.CLIENT_URL;
 
 module.exports = {
   port,
@@ -18,4 +19,5 @@ module.exports = {
   jwtActivationKey,
   smtpUsername,
   smtpPassword,
+  frontendURL,
 };

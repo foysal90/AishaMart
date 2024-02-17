@@ -5,7 +5,8 @@ const fs = require("fs").promises;
 const { findWithId, deleteWithId } = require("../services/findItem");
 const { deleteImage } = require("../helper/deleteImage");
 const { createJWT } = require("../helper/jsonWebToken");
-const { jwtActivationKey } = require("../secret");
+const { jwtActivationKey, frontendURL } = require("../secret");
+const sendEmailWithNodeMailer = require("../helper/email");
 
 const getUsers = async (req, res, next) => {
   try {
@@ -118,9 +119,16 @@ const register = async (req, res, next) => {
       subject: "Account Activation Email",
       html: `
       <h2> Hello ${name} ! </h2>
-      <p> Please click here to <a href=" "> activate your account </a></p>
+      <p> Please click here to <a href="${frontendURL}/api/users/activate/${jwtToken} " target="_blank"> activate your account </a></p>
       `,
     };
+    //send email with nodemailer
+    try {
+      await sendEmailWithNodeMailer(emailData);
+    } catch (emailError) {
+      next(createError(500, "failed to send verification email"));
+      return;
+    }
     //console.log(jwtToken);
     // const newUser = {
     //   name,
@@ -131,7 +139,7 @@ const register = async (req, res, next) => {
 
     return successResponse(res, {
       statusCode: 200,
-      message: "user created successfully",
+      message: `Please check your ${email} to activate your account`,
       payload: { jwtToken },
     });
   } catch (error) {
