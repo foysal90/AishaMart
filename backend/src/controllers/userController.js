@@ -1,8 +1,11 @@
 const createError = require("http-errors");
 const User = require("../models/userModel");
 const { successResponse } = require("./responseController");
-const fs = require("fs");
+const fs = require("fs").promises;
 const { findWithId, deleteWithId } = require("../services/findItem");
+const { deleteImage } = require("../helper/deleteImage");
+const { createJWT } = require("../helper/jsonWebToken");
+const { jwtActivationKey } = require("../secret");
 
 const getUsers = async (req, res, next) => {
   try {
@@ -51,11 +54,11 @@ const getUsers = async (req, res, next) => {
     next(error);
   }
 };
-const getUser = async (req, res, next) => {
+const getUserById = async (req, res, next) => {
   try {
     const id = req.params.id;
     const options = { password: 0 };
-    const user = await findWithId(id, options);
+    const user = await findWithId(User, id, options);
 
     return successResponse(res, {
       statusCode: 200,
@@ -69,28 +72,21 @@ const getUser = async (req, res, next) => {
     next(error);
   }
 };
-const deleteUser = async (req, res, next) => {
+const deleteUserById = async (req, res, next) => {
   try {
     const id = req.params.id;
-    //const options = { password: 0 };
-    //making sure none of the admin is deleted
-    const deletedUser = await deleteWithId({ _id: id, isAdmin: false });
-    const userImagePath = deletedUser.image;
-    fs.access(userImagePath, (err) => {
-      if (err) {
-        console.error("user image doe not exits");
-      } else {
-        fs.unlink(userImagePath, (err) => {
-          if (err) throw err;
-          console.error("user image was deleted");
-        });
-      }
-    });
+    const options = { password: 0 };
+    const user = await findWithId(User, id, options);
 
+    const userImagePath = user.image;
+    deleteImage(userImagePath);
+
+    //making sure none of the admin is deleted
+    await deleteWithId(User, id, { isAdmin: false });
     return successResponse(res, {
       statusCode: 200,
       success: true,
-      message: "user were deleted successfully ",
+      message: "user was deleted successfully ",
     });
   } catch (error) {
     //checking invalid mongoose id
@@ -99,4 +95,48 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUser, deleteUser };
+const register = async (req, res, next) => {
+  try {
+    const { name, email, password, phone } = req.body;
+    const userExists = await User.exists({ email: email });
+    if (userExists) {
+      throw createError(
+        409,
+        "user already exists with this email, please log in or use an different email to register a new user"
+      );
+    }
+    //create jwt
+    const jwtToken = createJWT(
+      { name, email, password, phone },
+      jwtActivationKey,
+      "10m"
+    );
+
+    //prepare email
+    const emailData = {
+      email,
+      subject: "Account Activation Email",
+      html: `
+      <h2> Hello ${name} ! </h2>
+      <p> Please click here to <a href=" "> activate your account </a></p>
+      `,
+    };
+    //console.log(jwtToken);
+    // const newUser = {
+    //   name,
+    //   email,
+    //   password,
+    //   phone,
+    // };
+
+    return successResponse(res, {
+      statusCode: 200,
+      message: "user created successfully",
+      payload: { jwtToken },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getUsers, getUserById, deleteUserById, register };
