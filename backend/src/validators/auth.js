@@ -14,6 +14,7 @@ const validateUserRegistration = [
     .withMessage("email is required")
     .isEmail()
     .withMessage("invalid email address"),
+  body("phone").trim().notEmpty().withMessage("phone is required"),
 
   body("password")
     .trim()
@@ -27,6 +28,7 @@ const validateUserRegistration = [
     .withMessage(
       "Password must have at least one upperCase letter, one lowerCase letter, one number and one special character"
     ),
+  body("image").optional().isString().withMessage("user image is optional"),
 ];
 
 module.exports = { validateUserRegistration };

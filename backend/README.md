@@ -7,3 +7,4 @@ npm i bcrypt or npm i bcryptjs for password encryption
 npm i jsonwebtoken for authentication
 npm install nodemailer foe email send
 npm i multer for file upload
+npm install cloudinary

@@ -8,6 +8,7 @@ const { createJWT } = require("../helper/jsonWebToken");
 const { jwtActivationKey, frontendURL } = require("../secret");
 const sendEmailWithNodeMailer = require("../helper/email");
 const jwt = require("jsonwebtoken");
+const cloudinary = require("../config/cloudinary");
 
 const getUsers = async (req, res, next) => {
   try {
@@ -97,9 +98,69 @@ const deleteUserById = async (req, res, next) => {
   }
 };
 
+const updateUserById = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const options = { new: true, runValidators: true, context: "query" };
+    let updates = {};
+
+    // const { name, password, phone } = req.body;
+    // if (name) {
+    //   updates.name = name;
+    // }
+    // if (password) {
+    //   updates.password = password;
+    // }
+    // if (phone) {
+    //   updates.phone = phone;
+    // }
+
+    for (let key in req.body) {
+      if (["name", "password", "phone"].includes(key)) {
+        updates[key] = req.body[key];
+      }
+    }
+
+    const image = req.file.path;
+
+    if (image) {
+      if (image.size > 1024 * 1024 * 2) {
+        throw createError(400, "File too large,File must be less then 2MB");
+      }
+      const response = await cloudinary.uploader.upload(image, {
+        folder: "AishaMart",
+      });
+      updates.image = response.secure_url;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      updates,
+      options
+    ).select("-password");
+
+    if (!updatedUser) {
+      throw createError(404, "user with this Id does not exist");
+    }
+
+    return successResponse(res, {
+      statusCode: 200,
+      message: "user was updated successfully",
+      payload: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const register = async (req, res, next) => {
   try {
     const { name, email, password, phone } = req.body;
+
+    const image = req.file.path;
+    if (image && image.size > 1024 * 1024 * 2) {
+      throw createError(400, "File too large, it must be less than 2 MB");
+    }
     const userExists = await User.exists({ email: email });
     if (userExists) {
       throw createError(
@@ -107,12 +168,13 @@ const register = async (req, res, next) => {
         "user already exists with this email, please log in or use an different email to register a new user"
       );
     }
+
     //create jwt
-    const jwtToken = createJWT(
-      { name, email, password, phone },
-      jwtActivationKey,
-      "10m"
-    );
+    const userTokenPayload = { name, email, password, phone };
+    if (image) {
+      userTokenPayload.image = image;
+    }
+    const jwtToken = createJWT(userTokenPayload, jwtActivationKey, "10m");
 
     //prepare email
     const emailData = {
@@ -141,7 +203,7 @@ const register = async (req, res, next) => {
     return successResponse(res, {
       statusCode: 200,
       message: `Please check your ${email} to activate your account`,
-      payload: { jwtToken },
+      payload: jwtToken,
     });
   } catch (error) {
     next(error);
@@ -156,6 +218,14 @@ const activateUserAccount = async (req, res, next) => {
     const decoded = jwt.verify(token, jwtActivationKey);
     if (!decoded) throw createError(401, "user was not able to verify");
     // console.log(decoded)
+    //uploading image to cloudinary
+    const image = decoded.image;
+    if (image) {
+      const response = await cloudinary.uploader.upload(image, {
+        folder: "AishaMart",
+      });
+      decoded.image = response.secure_url;
+    }
     //creating user
     await User.create(decoded);
 
@@ -172,6 +242,7 @@ module.exports = {
   getUsers,
   getUserById,
   deleteUserById,
+  updateUserById,
   register,
   activateUserAccount,
 };
