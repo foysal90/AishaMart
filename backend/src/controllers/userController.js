@@ -7,6 +7,7 @@ const { deleteImage } = require("../helper/deleteImage");
 const { createJWT } = require("../helper/jsonWebToken");
 const { jwtActivationKey, frontendURL } = require("../secret");
 const sendEmailWithNodeMailer = require("../helper/email");
+const jwt = require("jsonwebtoken");
 
 const getUsers = async (req, res, next) => {
   try {
@@ -124,7 +125,7 @@ const register = async (req, res, next) => {
     };
     //send email with nodemailer
     try {
-      await sendEmailWithNodeMailer(emailData);
+      //await sendEmailWithNodeMailer(emailData);
     } catch (emailError) {
       next(createError(500, "failed to send verification email"));
       return;
@@ -147,4 +148,30 @@ const register = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUserById, deleteUserById, register };
+const activateUserAccount = async (req, res, next) => {
+  try {
+    const token = req.body.token;
+    if (!token) throw createError(404, "token was not found");
+
+    const decoded = jwt.verify(token, jwtActivationKey);
+    if (!decoded) throw createError(401, "user was not able to verify");
+    // console.log(decoded)
+    //creating user
+    await User.create(decoded);
+
+    return successResponse(res, {
+      statusCode: 201,
+      message: "user created successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getUsers,
+  getUserById,
+  deleteUserById,
+  register,
+  activateUserAccount,
+};
